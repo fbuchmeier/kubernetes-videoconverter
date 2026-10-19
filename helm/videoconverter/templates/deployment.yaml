@@ -1,0 +1,92 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "videoconverter.fullname" . }}
+  labels:
+    {{- include "videoconverter.labels" . | nindent 4 }}
+spec:
+  replicas: {{ .Values.replicaCount }}
+  selector:
+    matchLabels:
+      {{- include "videoconverter.selectorLabels" . | nindent 6 }}
+  template:
+    metadata:
+      labels:
+        {{- include "videoconverter.selectorLabels" . | nindent 8 }}
+    spec:
+      serviceAccountName: {{ include "videoconverter.serviceAccountName" . }}
+      {{- with .Values.image.pullSecrets }}
+      imagePullSecrets:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      containers:
+        - name: {{ .Chart.Name }}
+          image: "{{ .Values.image.repository }}:{{ .Values.image.tag }}"
+          imagePullPolicy: {{ .Values.image.pullPolicy }}
+          command: ["python", "-m", "video_converter"]
+          args:
+            - --scan-root
+            - {{ .Values.app.scanRoot | quote }}
+            - --mount-path
+            - {{ .Values.app.mountPath | quote }}
+            - --pvc-name
+            - {{ .Values.app.pvcName | quote }}
+            - --desired-format
+            - {{ .Values.app.desiredFormat | quote }}
+            - --job-namespace
+            - {{ .Release.Namespace | quote }}
+            - --job-prefix
+            - {{ .Values.app.jobPrefix | quote }}
+            - --max-parallel-jobs
+            - {{ .Values.app.maxParallelJobs | quote }}
+            - --max-retries
+            - {{ .Values.app.maxRetries | quote }}
+            - --poll-interval
+            - {{ .Values.app.pollInterval | quote }}
+            - --image
+            - {{ .Values.app.image | quote }}
+            - --job-timeout-seconds
+            - {{ .Values.app.jobTimeoutSeconds | quote }}
+            - --job-script-path
+            - {{ .Values.app.jobScriptPath | quote }}
+          env:
+            - name: VIDEO_CONVERTER_MOUNT_PATH
+              value: {{ .Values.app.mountPath | quote }}
+            - name: VIDEO_CONVERTER_PVC_NAME
+              value: {{ .Values.app.pvcName | quote }}
+            - name: VIDEO_CONVERTER_DESIRED_FORMAT
+              value: {{ .Values.app.desiredFormat | quote }}
+            - name: VIDEO_CONVERTER_NAMESPACE
+              value: {{ .Release.Namespace | quote }}
+            - name: VIDEO_CONVERTER_JOB_PREFIX
+              value: {{ .Values.app.jobPrefix | quote }}
+            - name: VIDEO_CONVERTER_MAX_PARALLEL_JOBS
+              value: {{ .Values.app.maxParallelJobs | quote }}
+            - name: VIDEO_CONVERTER_MAX_RETRIES
+              value: {{ .Values.app.maxRetries | quote }}
+            - name: VIDEO_CONVERTER_POLL_INTERVAL
+              value: {{ .Values.app.pollInterval | quote }}
+            - name: VIDEO_CONVERTER_JOB_SCRIPT_PATH
+              value: {{ .Values.app.jobScriptPath | quote }}
+            - name: VIDEO_CONVERTER_JOB_TIMEOUT_SECONDS
+              value: {{ .Values.app.jobTimeoutSeconds | quote }}
+          volumeMounts:
+            - name: media
+              mountPath: {{ .Values.app.mountPath | quote }}
+              readOnly: false
+      volumes:
+        - name: media
+          persistentVolumeClaim:
+            claimName: {{ .Values.app.pvcName | quote }}
+      {{- with .Values.nodeSelector }}
+      nodeSelector:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.affinity }}
+      affinity:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.tolerations }}
+      tolerations:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}

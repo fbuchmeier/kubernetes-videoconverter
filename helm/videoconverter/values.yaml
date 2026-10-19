@@ -1,0 +1,35 @@
+replicaCount: 1
+
+image:
+  repository: ghcr.io/example/videoconverter
+  tag: latest
+  pullPolicy: IfNotPresent
+  pullSecrets: []
+
+serviceAccount:
+  create: true
+  name: ""
+
+rbac:
+  create: true
+
+app:
+  scanRoot: "/mnt/media"
+  mountPath: "/mnt/media"
+  pvcName: "media-pvc"
+  desiredFormat: "mkv"
+  jobNamespace: "default"
+  jobPrefix: "video-convert"
+  maxParallelJobs: 2
+  maxRetries: 3
+  pollInterval: 60
+  jobTimeoutSeconds: 1800
+  image: "ghcr.io/example/videoconverter-encoder:latest"
+  jobScriptPath: "/app/scripts/encode_movie.sh"
+
+resources: {}
+nodeSelector: {}
+tolerations: []
+affinity: {}
+
+securityContext: {}
