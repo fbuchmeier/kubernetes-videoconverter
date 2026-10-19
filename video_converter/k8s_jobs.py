@@ -17,6 +17,10 @@ class KubernetesJobManager:
         pvc_name: str,
         image: str = "ghcr.io/example/videoconverter-encoder:latest",
         job_script_path: str = "/usr/local/bin/encode_movie.sh",
+        cpu_request: str = "500m",
+        memory_request: str = "512Mi",
+        cpu_limit: str = "2000m",
+        memory_limit: str = "4Gi",
     ):
         self.namespace = namespace
         self.job_prefix = re.sub(r"[^a-z0-9-]", "-", job_prefix.lower()).strip("-") or "video-convert"
@@ -24,6 +28,10 @@ class KubernetesJobManager:
         self.pvc_name = pvc_name
         self.image = image
         self.job_script_path = job_script_path
+        self.cpu_request = cpu_request
+        self.memory_request = memory_request
+        self.cpu_limit = cpu_limit
+        self.memory_limit = memory_limit
         self.batch = self._load_client()
 
     def _load_client(self):
@@ -74,6 +82,16 @@ class KubernetesJobManager:
                                     {"name": "CACHE_DIR", "value": "/tmp/videoconverter-cache"},
                                     {"name": "INPUT_FILE", "value": source_value},
                                 ],
+                                "resources": {
+                                    "requests": {
+                                        "cpu": self.cpu_request,
+                                        "memory": self.memory_request,
+                                    },
+                                    "limits": {
+                                        "cpu": self.cpu_limit,
+                                        "memory": self.memory_limit,
+                                    },
+                                },
                                 "volumeMounts": [{"name": "media", "mountPath": self.mount_path}],
                             }
                         ],

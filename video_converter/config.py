@@ -41,6 +41,10 @@ class AppConfig:
     image: str = "ghcr.io/example/videoconverter-encoder:latest"
     job_timeout_seconds: int = 1800
     job_script_path: str = "/usr/local/bin/encode_movie.sh"
+    job_cpu_request: str = "500m"
+    job_memory_request: str = "512Mi"
+    job_cpu_limit: str = "2000m"
+    job_memory_limit: str = "4Gi"
 
     def __post_init__(self) -> None:
         self.scan_root = Path(self.scan_root).expanduser().resolve()
@@ -69,6 +73,10 @@ def parse_args() -> AppConfig:
     parser.add_argument("--image", default=os.getenv("VIDEO_CONVERTER_IMAGE", "ghcr.io/example/videoconverter-encoder:latest"), help="Container image to execute the transcode job.")
     parser.add_argument("--job-timeout-seconds", type=int, default=int(os.getenv("VIDEO_CONVERTER_JOB_TIMEOUT_SECONDS", "1800")), help="Per-job timeout in seconds.")
     parser.add_argument("--job-script-path", default=os.getenv("VIDEO_CONVERTER_JOB_SCRIPT_PATH", "/usr/local/bin/encode_movie.sh"), help="Path to the encode script inside the job container.")
+    parser.add_argument("--job-cpu-request", default=os.getenv("VIDEO_CONVERTER_JOB_CPU_REQUEST", "500m"), help="CPU request assigned to each conversion Job.")
+    parser.add_argument("--job-memory-request", default=os.getenv("VIDEO_CONVERTER_JOB_MEMORY_REQUEST", "512Mi"), help="Memory request assigned to each conversion Job.")
+    parser.add_argument("--job-cpu-limit", default=os.getenv("VIDEO_CONVERTER_JOB_CPU_LIMIT", "2000m"), help="CPU limit assigned to each conversion Job.")
+    parser.add_argument("--job-memory-limit", default=os.getenv("VIDEO_CONVERTER_JOB_MEMORY_LIMIT", "4Gi"), help="Memory limit assigned to each conversion Job.")
     args = parser.parse_args()
 
     config = AppConfig(
@@ -85,6 +93,10 @@ def parse_args() -> AppConfig:
         image=args.image,
         job_timeout_seconds=args.job_timeout_seconds,
         job_script_path=args.job_script_path,
+        job_cpu_request=args.job_cpu_request,
+        job_memory_request=args.job_memory_request,
+        job_cpu_limit=args.job_cpu_limit,
+        job_memory_limit=args.job_memory_limit,
     )
 
     if config.max_parallel_jobs < 1:

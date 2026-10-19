@@ -70,10 +70,20 @@ spec:
               value: {{ .Values.app.jobScriptPath | quote }}
             - name: VIDEO_CONVERTER_JOB_TIMEOUT_SECONDS
               value: {{ .Values.app.jobTimeoutSeconds | quote }}
+            - name: VIDEO_CONVERTER_JOB_CPU_REQUEST
+              value: {{ .Values.app.jobCpuRequest | quote }}
+            - name: VIDEO_CONVERTER_JOB_MEMORY_REQUEST
+              value: {{ .Values.app.jobMemoryRequest | quote }}
+            - name: VIDEO_CONVERTER_JOB_CPU_LIMIT
+              value: {{ .Values.app.jobCpuLimit | quote }}
+            - name: VIDEO_CONVERTER_JOB_MEMORY_LIMIT
+              value: {{ .Values.app.jobMemoryLimit | quote }}
           volumeMounts:
             - name: media
               mountPath: {{ .Values.app.mountPath | quote }}
               readOnly: false
+          resources:
+            {{- toYaml .Values.resources | nindent 12 }}
       volumes:
         - name: media
           persistentVolumeClaim:

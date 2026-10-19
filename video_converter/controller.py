@@ -22,6 +22,10 @@ class ConversionController:
             pvc_name=config.pvc_name,
             image=config.image,
             job_script_path=config.job_script_path,
+            cpu_request=config.job_cpu_request,
+            memory_request=config.job_memory_request,
+            cpu_limit=config.job_cpu_limit,
+            memory_limit=config.job_memory_limit,
         )
         self.lock = threading.Lock()
         self.in_flight: Set[str] = set()
