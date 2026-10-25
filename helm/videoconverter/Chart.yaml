@@ -4,5 +4,5 @@ description: >-
   A controller that scans a media volume, converts out-of-spec movie files via
   Kubernetes Jobs, and retries failures.
 type: application
-version: 1.1.0
+version: 1.2.0
 appVersion: 0.1.0
