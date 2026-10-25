@@ -10,8 +10,8 @@ MEDIA_NODE_DIR="${E2E_MEDIA_NODE_DIR:-/mnt/videoconverter-e2e}"
 SAMPLE_NAME="${E2E_SAMPLE_NAME:-BigBuckBunny.mp4}"
 SAMPLE_URL="${E2E_SAMPLE_URL:-https://test-videos.co.uk/vids/bigbuckbunny/mp4/h264/360/Big_Buck_Bunny_360_10s_1MB.mp4}"
 SAMPLE_URL_FALLBACK="${E2E_SAMPLE_URL_FALLBACK:-https://test-videos.co.uk/vids/bigbuckbunny/mp4/h264/720/Big_Buck_Bunny_720_10s_1MB.mp4}"
-CONTROLLER_IMAGE="${E2E_CONTROLLER_IMAGE:-videoconverter:e2e}"
-ENCODER_IMAGE="${E2E_ENCODER_IMAGE:-videoconverter-encoder:e2e}"
+CONTROLLER_IMAGE="${E2E_CONTROLLER_IMAGE:-localhost/videoconverter:e2e}"
+ENCODER_IMAGE="${E2E_ENCODER_IMAGE:-localhost/videoconverter-encoder:e2e}"
 OUTPUT_TIMEOUT_SECONDS="${E2E_OUTPUT_TIMEOUT_SECONDS:-1200}"
 LOG_DIR="${REPO_DIR}/.e2e/logs"
 
@@ -29,6 +29,19 @@ mkdir -p "$LOG_DIR" "$MEDIA_DIR"
 
 log() {
     printf '[e2e] %s\n' "$*"
+}
+
+STAGE_TOTAL=10
+CURRENT_STAGE="startup"
+STAGE_LINE="============================================================"
+
+stage() {
+    local n="$1"
+    local title="$2"
+    CURRENT_STAGE="stage ${n}/${STAGE_TOTAL}: ${title}"
+    printf '\n[e2e] %s\n' "$STAGE_LINE"
+    printf '[e2e] STAGE %s/%s: %s\n' "$n" "$STAGE_TOTAL" "$title"
+    printf '[e2e] %s\n' "$STAGE_LINE"
 }
 
 run_kind() {
@@ -62,7 +75,7 @@ cleanup() {
     local status=$?
     trap - EXIT
     if (( status != 0 )); then
-        log "E2E failed (exit ${status}); collecting diagnostics"
+        log "E2E failed (exit ${status}) during [${CURRENT_STAGE}]; collecting diagnostics"
         dump_diagnostics 2>&1 | tee "$LOG_DIR/diagnostics.log" || true
     fi
     log "Deleting kind cluster ${CLUSTER_NAME}"
@@ -75,7 +88,7 @@ download_sample() {
     local url
     for url in "$SAMPLE_URL" "$SAMPLE_URL_FALLBACK"; do
         log "Downloading sample video from ${url}"
-        if curl -fL --retry 3 --retry-delay 2 --connect-timeout 10 \
+        if curl -fsSL --retry 3 --retry-delay 2 --connect-timeout 10 \
             -o "$MEDIA_DIR/$SAMPLE_NAME" "$url"; then
             return 0
         fi
@@ -83,14 +96,16 @@ download_sample() {
     return 1
 }
 
+stage 1 "Check prerequisites"
 require_tools
 
 log "Using kind provider: ${KIND_EXPERIMENTAL_PROVIDER}"
-log "Downloading Big Buck Bunny sample"
+stage 2 "Download sample video"
 download_sample
 [[ -s "$MEDIA_DIR/$SAMPLE_NAME" ]]
 log "Sample video: $(du -h "$MEDIA_DIR/$SAMPLE_NAME" | cut -f1)"
 
+stage 3 "Create kind cluster"
 cat > "$LOG_DIR/kind-config.yaml" <<EOF
 kind: Cluster
 apiVersion: kind.x-k8s.io/v1alpha4
@@ -108,18 +123,26 @@ kubectl config use-context "kind-${CLUSTER_NAME}"
 kubectl cluster-info
 kubectl wait --for=condition=Ready nodes --all --timeout=180s
 
+stage 4 "Build container images"
 log "Building controller image ${CONTROLLER_IMAGE}"
 podman build --tag "$CONTROLLER_IMAGE" "$REPO_DIR" 2>&1 | tee "$LOG_DIR/controller-build.log"
+podman image inspect "$CONTROLLER_IMAGE" >/dev/null
 
 log "Building encoder image ${ENCODER_IMAGE}"
 podman build --file "$REPO_DIR/encode-job.Dockerfile" --tag "$ENCODER_IMAGE" "$REPO_DIR" 2>&1 | tee "$LOG_DIR/encoder-build.log"
+podman image inspect "$ENCODER_IMAGE" >/dev/null
 
+stage 5 "Load images into kind"
 for image in "$CONTROLLER_IMAGE" "$ENCODER_IMAGE"; do
-    log "Loading ${image} into kind"
-    run_kind load docker-image --name "$CLUSTER_NAME" "$image" 2>&1 | tee -a "$LOG_DIR/kind-load.log"
+    safe_name="$(printf '%s' "$image" | tr '/:' '__')"
+    archive="${LOG_DIR}/${safe_name}.tar"
+    log "Saving ${image} to ${archive}"
+    podman save -o "$archive" "$image" 2>&1 | tee -a "$LOG_DIR/kind-load.log"
+    log "Loading ${archive} into kind"
+    run_kind load image-archive "$archive" --name "$CLUSTER_NAME" 2>&1 | tee -a "$LOG_DIR/kind-load.log"
 done
 
-log "Creating namespace, PV, and PVC"
+stage 6 "Create namespace, PV, and PVC"
 kubectl create namespace "$NAMESPACE" --dry-run=client -o yaml | kubectl apply -f -
 kubectl apply -n "$NAMESPACE" -f - <<EOF
 apiVersion: v1
@@ -160,10 +183,10 @@ for _ in {1..30}; do
 done
 [[ "$pvc_phase" == "Bound" ]]
 
+stage 7 "Install Helm chart"
 CONTROLLER_REPOSITORY="${CONTROLLER_IMAGE%:*}"
 CONTROLLER_TAG="${CONTROLLER_IMAGE##*:}"
 
-log "Installing Helm chart"
 helm upgrade --install "$RELEASE_NAME" "$REPO_DIR/helm/videoconverter" \
     --namespace "$NAMESPACE" \
     --create-namespace \
@@ -174,9 +197,10 @@ helm upgrade --install "$RELEASE_NAME" "$REPO_DIR/helm/videoconverter" \
     --wait \
     --timeout 10m 2>&1 | tee "$LOG_DIR/helm-install.log"
 
-log "Waiting for deployment to become ready"
+stage 8 "Wait for deployment readiness"
 kubectl rollout status "deployment/${RELEASE_NAME}" -n "$NAMESPACE" --timeout=300s
 
+stage 9 "Wait for conversion output"
 EXPECTED_OUTPUT="${MEDIA_DIR}/${SAMPLE_NAME%.*}.hb.mkv"
 log "Waiting for converted file ${EXPECTED_OUTPUT}"
 deadline=$((SECONDS + OUTPUT_TIMEOUT_SECONDS))
@@ -194,7 +218,8 @@ while [[ ! -s "$EXPECTED_OUTPUT" ]]; do
 done
 
 log "Converted file present: $(du -h "$EXPECTED_OUTPUT" | cut -f1)"
-log "Verifying output codec"
+
+stage 10 "Verify output codec"
 codec=$(podman run --rm --network none \
     --entrypoint ffprobe \
     -v "${MEDIA_DIR}:/media:ro" \
@@ -206,4 +231,7 @@ log "Output video codec: ${codec}"
 [[ "$codec" == "hevc" ]]
 
 kubectl logs -n "$NAMESPACE" "deployment/${RELEASE_NAME}" --tail=200 | tee "$LOG_DIR/controller.log"
-log "End-to-end test passed"
+
+printf '\n[e2e] %s\n' "$STAGE_LINE"
+printf '[e2e] END-TO-END TEST PASSED\n'
+printf '[e2e] %s\n' "$STAGE_LINE"

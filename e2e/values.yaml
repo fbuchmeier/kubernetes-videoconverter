@@ -1,7 +1,7 @@
 replicaCount: 1
 
 image:
-  repository: videoconverter
+  repository: localhost/videoconverter
   tag: e2e
   pullPolicy: IfNotPresent
   pullSecrets: []
@@ -23,7 +23,7 @@ app:
   maxRetries: 0
   pollInterval: 5
   jobTimeoutSeconds: 900
-  image: "videoconverter-encoder:e2e"
+  image: "localhost/videoconverter-encoder:e2e"
   jobScriptPath: "/usr/local/bin/encode_movie.sh"
   jobCpuRequest: "500m"
   jobMemoryRequest: "512Mi"
