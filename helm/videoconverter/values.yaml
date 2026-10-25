@@ -23,6 +23,7 @@ app:
   maxParallelJobs: 2
   maxRetries: 3
   pollInterval: 60
+  dryRun: false
   jobTimeoutSeconds: 1800
   image: "ghcr.io/example/videoconverter-encoder:latest"
   jobScriptPath: "/usr/local/bin/encode_movie.sh"

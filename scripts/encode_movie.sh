@@ -5,6 +5,7 @@ INPUT_FILE="${1:-}"
 
 DEBUG=${DEBUG:-}
 FORCE=${FORCE:-}
+DRY_RUN=${DRY_RUN:-}
 
 # Config (can be overridden via env)
 DATA_DIR="${DATA_DIR:-/data}"
@@ -90,6 +91,14 @@ process_file() {
     local dest_tmp="${src}.hb.tmp"
     local dest_final="${src%.*}.hb.mkv"
 
+    if [[ -n "$DRY_RUN" ]]; then
+        log "[dry-run] Would encode: $src"
+        log "[dry-run]   cache: $cache_in -> $cache_out"
+        log "[dry-run]   encoder: x265 main10 (quality 18.0), audio copy where possible"
+        log "[dry-run]   output: $dest_final"
+        return 0
+    fi
+
     log "Copying to cache: $src -> $cache_in"
     rsync "${RSYNC_OPTS[@]}" "$src" "$cache_in"
 
@@ -142,12 +151,14 @@ process_file() {
 
 # Main loop
 main_loop() {
-    log "Worker started. DATA_DIR=$DATA_DIR CACHE_DIR=$CACHE_DIR"
-
-    # ensure cache dir exists
-    mkdir -p "$CACHE_DIR"
-    mkdir -p "$CACHE_DIR/in"
-    mkdir -p "$CACHE_DIR/out"
+    if [[ -n "$DRY_RUN" ]]; then
+        log "[dry-run] Planning only. DATA_DIR=$DATA_DIR (no cache, no locks, no encodes)"
+    else
+        log "Worker started. DATA_DIR=$DATA_DIR CACHE_DIR=$CACHE_DIR"
+        # ensure cache dir exists
+        mkdir -p "$CACHE_DIR/in"
+        mkdir -p "$CACHE_DIR/out"
+    fi
 
     while true; do
         # find mkv files that are not already produced hb copies
@@ -166,19 +177,25 @@ main_loop() {
                 continue
             fi
 
-            # skip if already locked (another worker)
-            if [[ -d "${f}.lock" ]] ; then
-		log "Waiting for lock on $f to be released"
+            # skip if already locked (another worker) — locks are not used in dry-run
+            if [[ -z "$DRY_RUN" ]] && [[ -d "${f}.lock" ]] ; then
+ 		log "Waiting for lock on $f to be released"
                 continue
             fi
 
             # Quick codec check: skip if file is already HEVC
             if is_hevc "$f"; then
                 log "SKIP (already HEVC): $f"
-                # mark with a small status file so humans can see it quickly (optional)
-                if mkdir "${f}.skip" 2>/dev/null; then
+                # mark with a small status file so humans can see it quickly (optional; skipped in dry-run)
+                if [[ -z "$DRY_RUN" ]] && mkdir "${f}.skip" 2>/dev/null; then
                     jq -n --arg pod "$POD_NAME" --arg ts "$(date -Is)" --arg note "already_hevc" '{"pod":$pod,"ts":$ts,"note":$note}' > "${f}.skip/status.json"
                 fi
+                continue
+            fi
+
+            # In dry-run, just report the planned encode; no locking or side effects
+            if [[ -n "$DRY_RUN" ]]; then
+                process_file "$f"
                 continue
             fi
 
@@ -198,10 +215,10 @@ main_loop() {
             fi
         done
 
-	# When only a single file is requested, exit early
-	if [[ -n "${INPUT_FILE}" ]] && [[ -f "${INPUT_FILE}" ]] ; then
-		break
-	fi
+ 	# When only a single file is requested, or when planning (dry-run), exit early
+ 	if { [[ -n "${INPUT_FILE}" ]] && [[ -f "${INPUT_FILE}" ]] ; } || [[ -n "$DRY_RUN" ]] ; then
+ 		break
+ 	fi
 
         # brief sleep to avoid busy loop
         sleep 15

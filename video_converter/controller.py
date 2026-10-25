@@ -26,6 +26,7 @@ class ConversionController:
             memory_request=config.job_memory_request,
             cpu_limit=config.job_cpu_limit,
             memory_limit=config.job_memory_limit,
+            dry_run=config.dry_run,
         )
         self.lock = threading.Lock()
         self.in_flight: Set[str] = set()
@@ -97,6 +98,14 @@ class ConversionController:
                 return
 
             source_container = self._source_in_container(file_path)
+            if self.config.dry_run:
+                job_name = self.k8s.create_job(source_container)
+                print(
+                    f"[dry-run] Would convert {file_path} -> {output_path} "
+                    f"(job: {job_name}, image: {self.config.image}, pvc: {self.config.pvc_name})"
+                )
+                return
+
             time.sleep(self.calculate_start_delay(file_path))
             job_name = self.k8s.create_job(source_container)
             success = self.k8s.wait_for_job(job_name, timeout_seconds=self.config.job_timeout_seconds, poll_interval=10.0)
@@ -143,6 +152,8 @@ class ConversionController:
 
 
 def run_controller(config: AppConfig) -> None:
+    if config.dry_run:
+        print("[dry-run] Dry run enabled: conversions will be planned, but no Kubernetes Jobs will be created or encodes run.")
     controller = ConversionController(config)
     if config.run_once:
         controller.run_once()

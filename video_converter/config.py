@@ -37,6 +37,7 @@ class AppConfig:
     job_prefix: str = "video-convert"
     output_suffix: str = ".converted"
     run_once: bool = False
+    dry_run: bool = False
     supported_extensions: set[str] = field(default_factory=lambda: set(DEFAULT_VIDEO_EXTENSIONS))
     image: str = "ghcr.io/example/videoconverter-encoder:latest"
     job_timeout_seconds: int = 1800
@@ -73,6 +74,12 @@ def parse_args() -> AppConfig:
     parser.add_argument("--max-retries", type=int, default=int(os.getenv("VIDEO_CONVERTER_MAX_RETRIES", "3")), help="Retry count for a given file after a failed encode.")
     parser.add_argument("--poll-interval", type=int, default=int(os.getenv("VIDEO_CONVERTER_POLL_INTERVAL", "60")), help="Seconds between re-scans while looping.")
     parser.add_argument("--run-once", action="store_true", help="Scan once and exit instead of repeatedly looping.")
+    parser.add_argument(
+        "--dry-run",
+        action="store_true",
+        default=os.getenv("VIDEO_CONVERTER_DRY_RUN", "").strip().lower() in ("1", "true", "yes", "on"),
+        help="Plan conversions and print what would be done without creating Kubernetes Jobs or running encodes.",
+    )
     parser.add_argument("--image", default=os.getenv("VIDEO_CONVERTER_IMAGE", "ghcr.io/example/videoconverter-encoder:latest"), help="Container image to execute the transcode job.")
     parser.add_argument("--job-timeout-seconds", type=int, default=int(os.getenv("VIDEO_CONVERTER_JOB_TIMEOUT_SECONDS", "1800")), help="Per-job timeout in seconds.")
     parser.add_argument("--job-script-path", default=os.getenv("VIDEO_CONVERTER_JOB_SCRIPT_PATH", "/usr/local/bin/encode_movie.sh"), help="Path to the encode script inside the job container.")
@@ -96,6 +103,7 @@ def parse_args() -> AppConfig:
         job_namespace=args.job_namespace,
         job_prefix=args.job_prefix,
         run_once=args.run_once,
+        dry_run=args.dry_run,
         image=args.image,
         job_timeout_seconds=args.job_timeout_seconds,
         job_script_path=args.job_script_path,

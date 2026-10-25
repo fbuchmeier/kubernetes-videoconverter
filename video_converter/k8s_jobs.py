@@ -21,6 +21,7 @@ class KubernetesJobManager:
         memory_request: str = "512Mi",
         cpu_limit: str = "2000m",
         memory_limit: str = "4Gi",
+        dry_run: bool = False,
     ):
         self.namespace = namespace
         self.job_prefix = re.sub(r"[^a-z0-9-]", "-", job_prefix.lower()).strip("-") or "video-convert"
@@ -32,7 +33,9 @@ class KubernetesJobManager:
         self.memory_request = memory_request
         self.cpu_limit = cpu_limit
         self.memory_limit = memory_limit
-        self.batch = self._load_client()
+        self.dry_run = dry_run
+        # In dry-run we never talk to the API, so no kubeconfig/cluster is required.
+        self.batch = None if dry_run else self._load_client()
 
     def _load_client(self):
         try:
@@ -106,6 +109,8 @@ class KubernetesJobManager:
 
     def create_job(self, source_path: Path) -> str:
         job_name = self._sanitized_job_name(source_path)
+        if self.dry_run:
+            return job_name
         job_body = self._build_job_body(source_path)
         try:
             self.batch.create_namespaced_job(body=job_body, namespace=self.namespace)
@@ -116,6 +121,8 @@ class KubernetesJobManager:
         return job_name
 
     def job_is_done(self, job_name: str) -> tuple[bool, bool]:
+        if self.dry_run:
+            return True, True
         job = self.batch.read_namespaced_job(name=job_name, namespace=self.namespace)
         succeeded = job.status.succeeded or 0
         failed = job.status.failed or 0
@@ -126,6 +133,8 @@ class KubernetesJobManager:
         return False, False
 
     def wait_for_job(self, job_name: str, timeout_seconds: int = 1800, poll_interval: float = 10.0) -> bool:
+        if self.dry_run:
+            return True
         started = time.time()
         while time.time() - started < timeout_seconds:
             done, success = self.job_is_done(job_name)
@@ -135,6 +144,8 @@ class KubernetesJobManager:
         return False
 
     def delete_job(self, job_name: str) -> None:
+        if self.dry_run:
+            return
         try:
             self.batch.delete_namespaced_job(name=job_name, namespace=self.namespace)
         except client.ApiException as exc:
@@ -142,6 +153,8 @@ class KubernetesJobManager:
                 raise
 
     def is_active_job_for_file(self, file_path: Path) -> bool:
+        if self.dry_run:
+            return False
         label_selector = f"movie-file={self._file_label(file_path)}"
         jobs = self.batch.list_namespaced_job(namespace=self.namespace, label_selector=label_selector)
         return any((job.status.active or 0) > 0 for job in jobs.items)
