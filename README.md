@@ -112,6 +112,25 @@ The application can also be used in one-shot mode:
 python -m video_converter --scan-root /mnt/media --run-once
 ```
 
+## Network-aware scheduling
+
+Multiple jobs copying large files to the cache area at the same time can saturate the backing network and significantly slow down each conversion. To reduce this, the controller batches pending work, checks the size of each source file, and adds a delay proportional to the file size before it launches the conversion job.
+
+The default assumption is a 1 GBit/s network, with a 5% delay factor applied to the theoretical copy time. This keeps the system parallel without a full simultaneous burst of large cache copies.
+
+```bash
+python -m video_converter \
+  --scan-root /mnt/media \
+  --mount-path /mnt/media \
+  --pvc-name media-pvc \
+  --max-parallel-jobs 2 \
+  --job-start-delay-seconds 15 \
+  --network-throughput-mbps 1000 \
+  --network-delay-factor 0.05
+```
+
+For slower links or very large media files, lower `--network-throughput-mbps` and/or increase `--job-start-delay-seconds` to extend the spacing between launch times.
+
 ## Job behavior
 
 Each Kubernetes Job mounts the PVC named by `--pvc-name` at `--mount-path`, sets `DATA_DIR` and `CACHE_DIR`, passes the source file path into `encode_movie.sh`, and runs the script in the dedicated encoder image. The controller keeps a single active job per file using a unique label derived from the source path.

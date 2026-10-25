@@ -45,6 +45,9 @@ class AppConfig:
     job_memory_request: str = "512Mi"
     job_cpu_limit: str = "2000m"
     job_memory_limit: str = "4Gi"
+    job_start_delay_seconds: int = 15
+    network_throughput_mbps: float = 1000.0
+    network_delay_factor: float = 0.05
 
     def __post_init__(self) -> None:
         self.scan_root = Path(self.scan_root).expanduser().resolve()
@@ -77,6 +80,9 @@ def parse_args() -> AppConfig:
     parser.add_argument("--job-memory-request", default=os.getenv("VIDEO_CONVERTER_JOB_MEMORY_REQUEST", "512Mi"), help="Memory request assigned to each conversion Job.")
     parser.add_argument("--job-cpu-limit", default=os.getenv("VIDEO_CONVERTER_JOB_CPU_LIMIT", "2000m"), help="CPU limit assigned to each conversion Job.")
     parser.add_argument("--job-memory-limit", default=os.getenv("VIDEO_CONVERTER_JOB_MEMORY_LIMIT", "4Gi"), help="Memory limit assigned to each conversion Job.")
+    parser.add_argument("--job-start-delay-seconds", type=int, default=int(os.getenv("VIDEO_CONVERTER_JOB_START_DELAY_SECONDS", "15")), help="Minimum delay applied before launching a job to reduce network contention.")
+    parser.add_argument("--network-throughput-mbps", type=float, default=float(os.getenv("VIDEO_CONVERTER_NETWORK_THROUGHPUT_MBPS", "1000")), help="Assumed network throughput in megabits per second to size the per-file launch delay.")
+    parser.add_argument("--network-delay-factor", type=float, default=float(os.getenv("VIDEO_CONVERTER_NETWORK_DELAY_FACTOR", "0.05")), help="Fraction of the theoretical copy time used as a delay before launch.")
     args = parser.parse_args()
 
     config = AppConfig(
@@ -97,6 +103,9 @@ def parse_args() -> AppConfig:
         job_memory_request=args.job_memory_request,
         job_cpu_limit=args.job_cpu_limit,
         job_memory_limit=args.job_memory_limit,
+        job_start_delay_seconds=args.job_start_delay_seconds,
+        network_throughput_mbps=args.network_throughput_mbps,
+        network_delay_factor=args.network_delay_factor,
     )
 
     if config.max_parallel_jobs < 1:
@@ -105,4 +114,10 @@ def parse_args() -> AppConfig:
         raise ValueError("--max-retries must be 0 or higher")
     if config.poll_interval < 1:
         raise ValueError("--poll-interval must be at least 1")
+    if config.job_start_delay_seconds < 0:
+        raise ValueError("--job-start-delay-seconds must be 0 or higher")
+    if config.network_throughput_mbps <= 0:
+        raise ValueError("--network-throughput-mbps must be greater than 0")
+    if config.network_delay_factor < 0:
+        raise ValueError("--network-delay-factor must be 0 or higher")
     return config

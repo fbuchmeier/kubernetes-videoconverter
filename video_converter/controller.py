@@ -56,7 +56,8 @@ class ConversionController:
         return self.scanner.find_movie_files()
 
     def schedule(self, files: Iterable[Path]) -> None:
-        for file_path in files:
+        queue = sorted(list(files), key=lambda p: (p.stat().st_size if p.exists() else 0, str(p)), reverse=True)
+        for index, file_path in enumerate(queue):
             key = self._file_key(file_path)
             with self.lock:
                 if key in self.in_flight:
@@ -64,8 +65,17 @@ class ConversionController:
                 if self.k8s.is_active_job_for_file(file_path):
                     continue
                 self.in_flight.add(key)
+
             future = self._executor.submit(self.process_file, file_path)
             self._job_futures.add(future)
+
+    def calculate_start_delay(self, file_path: Path) -> float:
+        size_bytes = file_path.stat().st_size if file_path.exists() else 0
+        throughput_bps = (self.config.network_throughput_mbps * 1_000_000) / 8.0
+        if throughput_bps <= 0 or size_bytes <= 0:
+            return float(self.config.job_start_delay_seconds)
+        estimated_copy_seconds = size_bytes / throughput_bps
+        return float(self.config.job_start_delay_seconds) + (estimated_copy_seconds * self.config.network_delay_factor)
 
     def process_file(self, file_path: Path) -> None:
         key = self._file_key(file_path)
@@ -87,6 +97,7 @@ class ConversionController:
                 return
 
             source_container = self._source_in_container(file_path)
+            time.sleep(self.calculate_start_delay(file_path))
             job_name = self.k8s.create_job(source_container)
             success = self.k8s.wait_for_job(job_name, timeout_seconds=self.config.job_timeout_seconds, poll_interval=10.0)
             if success:
