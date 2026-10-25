@@ -160,10 +160,11 @@ main_loop() {
             # sanity check: file still exists
             [[ -f "$f" ]] || continue
 
-	    # skip if a hb.mkv file already exists in this directory
-	    if [[ -f "${f/.mkv/.hb.mkv}" ]] && [[ -z "$FORCE" ]] ; then
-		continue
-	    fi
+            # skip if a .hb.mkv output already exists next to the source
+            source_stem="${f%.*}"
+            if [[ -f "${source_stem}.hb.mkv" ]] && [[ -z "$FORCE" ]] ; then
+                continue
+            fi
 
             # skip if already locked (another worker)
             if [[ -d "${f}.lock" ]] ; then
