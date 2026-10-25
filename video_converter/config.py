@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import argparse
 import os
+import re
 from dataclasses import dataclass, field
 from pathlib import Path
 
@@ -30,6 +31,7 @@ class AppConfig:
     mount_path: str
     pvc_name: str
     desired_format: str = "mkv"
+    file_regex: str = ""
     poll_interval: int = 60
     max_parallel_jobs: int = 2
     max_retries: int = 3
@@ -54,6 +56,7 @@ class AppConfig:
         self.scan_root = Path(self.scan_root).expanduser().resolve()
         self.mount_path = str(self.mount_path).replace("\\", "/")
         self.desired_format = self.desired_format.lstrip(".").lower()
+        self.file_regex = (self.file_regex or "").strip()
         self.supported_extensions = {ext.lower() for ext in self.supported_extensions}
         self.job_script_path = str(self.job_script_path).replace("\\", "/")
 
@@ -68,6 +71,7 @@ def parse_args() -> AppConfig:
     parser.add_argument("--mount-path", default=os.getenv("VIDEO_CONVERTER_MOUNT_PATH", "/mnt/media"), help="Mount path used by the PVC inside the job container.")
     parser.add_argument("--pvc-name", default=os.getenv("VIDEO_CONVERTER_PVC_NAME", "media-pvc"), help="Name of the PVC to mount in each Kubernetes Job.")
     parser.add_argument("--desired-format", default=os.getenv("VIDEO_CONVERTER_DESIRED_FORMAT", "mkv"), help="Target extension for converted files, e.g. mkv or mp4.")
+    parser.add_argument("--file-regex", default=os.getenv("VIDEO_CONVERTER_FILE_REGEX", ""), help="Optional regex; only files whose path relative to the scan root matches are converted. Empty matches every file.")
     parser.add_argument("--job-namespace", default=os.getenv("VIDEO_CONVERTER_NAMESPACE", "default"), help="Namespace where the conversion jobs are created.")
     parser.add_argument("--job-prefix", default=os.getenv("VIDEO_CONVERTER_JOB_PREFIX", "video-convert"), help="Prefix for generated Kubernetes Job names.")
     parser.add_argument("--max-parallel-jobs", type=int, default=int(os.getenv("VIDEO_CONVERTER_MAX_PARALLEL_JOBS", "2")), help="Maximum number of files processed in parallel.")
@@ -97,6 +101,7 @@ def parse_args() -> AppConfig:
         mount_path=args.mount_path,
         pvc_name=args.pvc_name,
         desired_format=args.desired_format,
+        file_regex=args.file_regex,
         poll_interval=args.poll_interval,
         max_parallel_jobs=args.max_parallel_jobs,
         max_retries=args.max_retries,
@@ -116,6 +121,11 @@ def parse_args() -> AppConfig:
         network_delay_factor=args.network_delay_factor,
     )
 
+    if config.file_regex:
+        try:
+            re.compile(config.file_regex)
+        except re.error as exc:
+            raise ValueError(f"--file-regex is not a valid regular expression: {exc}") from exc
     if config.max_parallel_jobs < 1:
         raise ValueError("--max-parallel-jobs must be at least 1")
     if config.max_retries < 0:

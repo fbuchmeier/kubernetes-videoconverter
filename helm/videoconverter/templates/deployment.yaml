@@ -33,6 +33,10 @@ spec:
             - {{ .Values.app.pvcName | quote }}
             - --desired-format
             - {{ .Values.app.desiredFormat | quote }}
+            {{- if .Values.app.fileRegex }}
+            - --file-regex
+            - {{ .Values.app.fileRegex | quote }}
+            {{- end }}
             - --job-namespace
             - {{ .Release.Namespace | quote }}
             - --job-prefix

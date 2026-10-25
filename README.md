@@ -5,6 +5,7 @@ This Python application scans a media directory for movie files that are not alr
 ## Features
 
 - Recursively scans a configured directory tree
+- Optionally restricts which files are converted via a regex on the path relative to the scan root
 - Ignores files already in the configured format or already recognized as HEVC
 - Creates at most one active job per source file
 - Retries failed processing up to a configured maximum

@@ -14,7 +14,7 @@ from .scanner import MovieScanner
 class ConversionController:
     def __init__(self, config: AppConfig):
         self.config = config
-        self.scanner = MovieScanner(config.scan_root, config.desired_extension, config.supported_extensions)
+        self.scanner = MovieScanner(config.scan_root, config.desired_extension, config.supported_extensions, config.file_regex)
         self.k8s = KubernetesJobManager(
             namespace=config.job_namespace,
             job_prefix=config.job_prefix,

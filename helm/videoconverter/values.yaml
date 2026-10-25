@@ -18,6 +18,7 @@ app:
   mountPath: "/mnt/media"
   pvcName: "media-pvc"
   desiredFormat: "mkv"
+  fileRegex: ""
   jobNamespace: "default"
   jobPrefix: "video-convert"
   maxParallelJobs: 2
