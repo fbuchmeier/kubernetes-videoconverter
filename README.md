@@ -154,3 +154,4 @@ For slower links or very large media files, lower `--network-throughput-mbps` an
 Each Kubernetes Job mounts the PVC named by `--pvc-name` at `--mount-path`, sets `DATA_DIR` and `CACHE_DIR`, passes the source file path into `encode_movie.sh`, and runs the script in the dedicated encoder image. The controller keeps a single active job per file using a unique label derived from the source path.
 
 The output filename is not a raw ffmpeg transcode to the requested extension; it follows the HandBrake script behavior and writes `<source>.hb.mkv` next to the original file.
+
