@@ -1,0 +1,40 @@
+replicaCount: 1
+
+image:
+  repository: videoconverter
+  tag: e2e
+  pullPolicy: IfNotPresent
+  pullSecrets: []
+
+serviceAccount:
+  create: true
+  name: ""
+
+rbac:
+  create: true
+
+app:
+  scanRoot: "/mnt/media"
+  mountPath: "/mnt/media"
+  pvcName: "media-pvc"
+  desiredFormat: "mkv"
+  jobPrefix: "video-convert-e2e"
+  maxParallelJobs: 1
+  maxRetries: 0
+  pollInterval: 5
+  jobTimeoutSeconds: 900
+  image: "videoconverter-encoder:e2e"
+  jobScriptPath: "/usr/local/bin/encode_movie.sh"
+  jobCpuRequest: "500m"
+  jobMemoryRequest: "512Mi"
+  jobCpuLimit: "2000m"
+  jobMemoryLimit: "4Gi"
+  jobStartDelaySeconds: 0
+  networkThroughputMbps: 1000
+  networkDelayFactor: 0
+
+resources: {}
+nodeSelector: {}
+tolerations: []
+affinity: {}
+securityContext: {}

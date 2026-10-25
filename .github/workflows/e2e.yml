@@ -1,0 +1,56 @@
+name: End-to-end test
+
+on:
+  pull_request:
+  push:
+    branches:
+      - main
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: e2e-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  e2e:
+    runs-on: ubuntu-latest
+    timeout-minutes: 35
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Install prerequisites and Podman
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y build-essential curl file git procps podman
+
+      - name: Install Homebrew
+        run: |
+          NONINTERACTIVE=1 /bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)"
+          echo "/home/linuxbrew/.linuxbrew/bin" >> "$GITHUB_PATH"
+          eval "$(/home/linuxbrew/.linuxbrew/bin/brew shellenv)"
+
+      - name: Install Homebrew tools
+        run: brew bundle install
+
+      - name: Verify dependencies
+        run: |
+          for tool in podman kind kubectl helm jq curl; do
+            command -v "$tool"
+          done
+          podman version
+          kind version
+
+      - name: Run end-to-end test
+        run: ./e2e/run.sh
+
+      - name: Upload end-to-end logs
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: e2e-logs
+          path: .e2e/logs
+          if-no-files-found: ignore
