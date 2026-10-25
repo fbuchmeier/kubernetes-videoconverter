@@ -30,6 +30,9 @@ app:
   jobMemoryRequest: "512Mi"
   jobCpuLimit: "2000m"
   jobMemoryLimit: "4Gi"
+  jobStartDelaySeconds: 15
+  networkThroughputMbps: 1000
+  networkDelayFactor: 0.05
 
 resources: {}
 nodeSelector: {}

@@ -49,6 +49,12 @@ spec:
             - {{ .Values.app.jobTimeoutSeconds | quote }}
             - --job-script-path
             - {{ .Values.app.jobScriptPath | quote }}
+            - --job-start-delay-seconds
+            - {{ .Values.app.jobStartDelaySeconds | quote }}
+            - --network-throughput-mbps
+            - {{ .Values.app.networkThroughputMbps | quote }}
+            - --network-delay-factor
+            - {{ .Values.app.networkDelayFactor | quote }}
           env:
             - name: VIDEO_CONVERTER_MOUNT_PATH
               value: {{ .Values.app.mountPath | quote }}
@@ -70,6 +76,12 @@ spec:
               value: {{ .Values.app.jobScriptPath | quote }}
             - name: VIDEO_CONVERTER_JOB_TIMEOUT_SECONDS
               value: {{ .Values.app.jobTimeoutSeconds | quote }}
+            - name: VIDEO_CONVERTER_JOB_START_DELAY_SECONDS
+              value: {{ .Values.app.jobStartDelaySeconds | quote }}
+            - name: VIDEO_CONVERTER_NETWORK_THROUGHPUT_MBPS
+              value: {{ .Values.app.networkThroughputMbps | quote }}
+            - name: VIDEO_CONVERTER_NETWORK_DELAY_FACTOR
+              value: {{ .Values.app.networkDelayFactor | quote }}
             - name: VIDEO_CONVERTER_JOB_CPU_REQUEST
               value: {{ .Values.app.jobCpuRequest | quote }}
             - name: VIDEO_CONVERTER_JOB_MEMORY_REQUEST
