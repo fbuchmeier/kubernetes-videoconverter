@@ -134,14 +134,21 @@ podman build --file "$REPO_DIR/encode-job.Dockerfile" --tag "$ENCODER_IMAGE" "$R
 podman image inspect "$ENCODER_IMAGE" >/dev/null
 
 stage 5 "Load images into kind"
+kind_nodes="$(run_kind get nodes --name "$CLUSTER_NAME")"
 for image in "$CONTROLLER_IMAGE" "$ENCODER_IMAGE"; do
     safe_name="$(printf '%s' "$image" | tr '/:' '__')"
     archive="${LOG_DIR}/${safe_name}.tar"
     log "Saving ${image} to ${archive}"
     rm -f "$archive"
     podman save -o "$archive" "$image" 2>&1 | tee -a "$LOG_DIR/kind-load.log"
-    log "Loading ${archive} into kind"
-    run_kind load image-archive "$archive" --name "$CLUSTER_NAME" 2>&1 | tee -a "$LOG_DIR/kind-load.log"
+    in_node_path="/tmp/${safe_name}.tar"
+    while IFS= read -r node; do
+        [[ -n "$node" ]] || continue
+        log "Loading ${image} into node ${node}"
+        podman cp "$archive" "${node}:${in_node_path}" 2>&1 | tee -a "$LOG_DIR/kind-load.log"
+        podman exec "$node" ctr --namespace=k8s.io images import --all-platforms --digests "$in_node_path" 2>&1 | tee -a "$LOG_DIR/kind-load.log"
+        podman exec "$node" rm -f "$in_node_path" 2>&1 | tee -a "$LOG_DIR/kind-load.log"
+    done <<< "$kind_nodes"
 done
 
 stage 6 "Create namespace, PV, and PVC"
