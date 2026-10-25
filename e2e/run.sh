@@ -26,6 +26,7 @@ if [[ -n "$KIND_BIN" ]] && [[ "$(uname -s)" == "Linux" ]] && (( EUID != 0 )) \
 fi
 
 mkdir -p "$LOG_DIR" "$MEDIA_DIR"
+rm -f "$MEDIA_DIR/$SAMPLE_NAME" "$MEDIA_DIR/${SAMPLE_NAME%.*}.hb.mkv"
 
 log() {
     printf '[e2e] %s\n' "$*"
@@ -137,6 +138,7 @@ for image in "$CONTROLLER_IMAGE" "$ENCODER_IMAGE"; do
     safe_name="$(printf '%s' "$image" | tr '/:' '__')"
     archive="${LOG_DIR}/${safe_name}.tar"
     log "Saving ${image} to ${archive}"
+    rm -f "$archive"
     podman save -o "$archive" "$image" 2>&1 | tee -a "$LOG_DIR/kind-load.log"
     log "Loading ${archive} into kind"
     run_kind load image-archive "$archive" --name "$CLUSTER_NAME" 2>&1 | tee -a "$LOG_DIR/kind-load.log"
