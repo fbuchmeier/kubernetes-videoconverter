@@ -1,5 +1,16 @@
 # Changelog
 
+## [1.4.0](https://github.com/fbuchmeier/kubernetes-videoconverter/compare/v1.3.0...v1.4.0) (2026-10-25)
+
+
+### Features
+
+* add an option to restrict file scanning relative to the main root ([9d23b62](https://github.com/fbuchmeier/kubernetes-videoconverter/commit/9d23b62d283de57104bd7ea52cc84588dfbc39ab))
+* added dry-run flag ([254cdc1](https://github.com/fbuchmeier/kubernetes-videoconverter/commit/254cdc18d80aea24deb0bb68c4095579f6889862))
+* expose network-aware job delay settings in Helm chart ([6bd6484](https://github.com/fbuchmeier/kubernetes-videoconverter/commit/6bd648431fa4cbc160631efc2c9cdc4d6b1c8503))
+* initial commit ([4baf214](https://github.com/fbuchmeier/kubernetes-videoconverter/commit/4baf21403a1fd91e17bf3037e3467594df898980))
+* support job resource requests and limits ([3574aca](https://github.com/fbuchmeier/kubernetes-videoconverter/commit/3574aca85c2429742645d3a18757b67a17879320))
+
 ## [1.3.0](https://github.com/fbuchmeier/kubernetes-videoconverter/compare/v1.2.0...v1.3.0) (2026-10-25)
 
 

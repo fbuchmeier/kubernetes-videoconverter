@@ -1,5 +1,13 @@
 # Changelog
 
+## [0.4.0](https://github.com/fbuchmeier/kubernetes-videoconverter/compare/v0.3.0...v0.4.0) (2026-10-25)
+
+
+### Features
+
+* add an option to restrict file scanning relative to the main root ([9d23b62](https://github.com/fbuchmeier/kubernetes-videoconverter/commit/9d23b62d283de57104bd7ea52cc84588dfbc39ab))
+* version bump ([00b57f2](https://github.com/fbuchmeier/kubernetes-videoconverter/commit/00b57f2b36543d37ea0b90c958518dc72b600f44))
+
 ## [0.3.0](https://github.com/fbuchmeier/kubernetes-videoconverter/compare/v0.2.0...v0.3.0) (2026-10-25)
 
 
