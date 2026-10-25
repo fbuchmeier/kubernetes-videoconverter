@@ -46,3 +46,6 @@ Thumbs.db
 *.log
 tmp/
 .cache/
+
+# End-to-end test artifacts
+.e2e/

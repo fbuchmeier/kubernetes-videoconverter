@@ -8,3 +8,5 @@ __pycache__
 .mypy_cache
 .pytest_cache
 .helm
+
+.e2e

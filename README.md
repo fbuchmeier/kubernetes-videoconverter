@@ -53,7 +53,7 @@ The repository also publishes:
 Build the controller image with UV:
 
 ```bash
-docker build -t videoconverter:local .
+podman build -t videoconverter:local .
 ```
 
 The GitHub Action at `.github/workflows/build-publish-ghcr.yml` publishes this controller image to GHCR.
@@ -63,7 +63,7 @@ The GitHub Action at `.github/workflows/build-publish-ghcr.yml` publishes this c
 Build the dedicated encoding image for the Jobs:
 
 ```bash
-docker build -f encode-job.Dockerfile -t videoconverter-encoder:local .
+podman build -f encode-job.Dockerfile -t videoconverter-encoder:local .
 ```
 
 The GitHub Action at `.github/workflows/build-publish-job-image.yml` publishes this encode image to GHCR as an OCI artifact for use by the Kubernetes Jobs.
@@ -89,6 +89,24 @@ helm upgrade --install videoconverter ./helm/videoconverter \
   --set app.mountPath=/mnt/media \
   --set app.pvcName=media-pvc
 ```
+
+## End-to-end test
+
+The E2E test provisions a disposable kind cluster with Podman, builds and loads both images, installs the Helm chart, and verifies that a downloaded Big Buck Bunny sample is converted to HEVC. The GitHub Actions workflow in `.github/workflows/e2e.yml` runs the same test.
+
+Install the local tooling with Homebrew. Podman is intentionally not part of the Brewfile, so install it separately and make sure it is running (`podman machine start` on macOS):
+
+```bash
+brew bundle
+```
+
+Run the test from the repository root:
+
+```bash
+./e2e/run.sh
+```
+
+The kind cluster is deleted automatically. Test logs are written to `.e2e/logs`.
 
 ## Example run
 
